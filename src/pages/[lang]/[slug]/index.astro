@@ -1,0 +1,51 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+
+export async function getStaticPaths() {
+	const items = await getCollection('workshops');
+	return ['ja', 'en'].flatMap((lang) =>
+		items.map((item) => ({ params: { lang, slug: item.id }, props: { item } })),
+	);
+}
+
+const { item } = Astro.props;
+const lang = Astro.params.lang as 'ja' | 'en';
+const base = import.meta.env.BASE_URL;
+const title = lang === 'ja' ? item.data.titleJa : item.data.titleEn;
+const summary = lang === 'ja' ? item.data.summaryJa : item.data.summaryEn;
+const prerequisites = lang === 'ja' ? item.data.prerequisitesJa : item.data.prerequisitesEn;
+const outcomes = lang === 'ja' ? item.data.outcomesJa : item.data.outcomesEn;
+const caution = lang === 'ja' ? item.data.cautionJa : item.data.cautionEn;
+const copy = lang === 'ja'
+	? { back: 'カタログへ戻る', prerequisites: '前提条件', outcomes: '学べること', services: '使用サービス', open: 'GitHub で開く', caution: '事前確認' }
+	: { back: 'Back to catalog', prerequisites: 'Prerequisites', outcomes: 'What you will learn', services: 'Services used', open: 'Open on GitHub', caution: 'Before you start' };
+---
+
+<BaseLayout lang={lang} title={`${title} | Azure Workshop Store`} description={summary} alternatePath={`${item.id}/`}>
+	<article class="shell detail">
+		<a class="back" href={`${base}${lang}/`}>← {copy.back}</a>
+		<p class="eyebrow">{item.data.format} · {item.data.duration}</p>
+		<h1>{title}</h1>
+		<p class="detail-lead">{summary}</p>
+		<div class="tags">
+			{item.data.services.map((service) => <span class="tag">{service}</span>)}
+		</div>
+		<div class="detail-grid">
+			<section class="detail-panel">
+				<h2>{copy.outcomes}</h2>
+				<ul>{outcomes.map((value) => <li>{value}</li>)}</ul>
+			</section>
+			<section class="detail-panel">
+				<h2>{copy.prerequisites}</h2>
+				<ul>{prerequisites.map((value) => <li>{value}</li>)}</ul>
+			</section>
+		</div>
+		<section class="detail-panel">
+			<h2>{copy.services}</h2>
+			<div class="tags">{item.data.services.map((service) => <span class="tag">{service}</span>)}</div>
+		</section>
+		{caution && <p class="notice"><strong>{copy.caution}:</strong> {caution}</p>}
+		<p><a class="button primary" href={item.data.url} target="_blank" rel="noreferrer">{copy.open} ↗</a></p>
+	</article>
+</BaseLayout>

@@ -1,0 +1,156 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+export function getStaticPaths() {
+	return [{ params: { lang: 'ja' } }, { params: { lang: 'en' } }];
+}
+
+const lang = Astro.params.lang as 'ja' | 'en';
+const base = import.meta.env.BASE_URL;
+const items = (await getCollection('workshops')).sort(
+	(a, b) => Number(b.data.featured) - Number(a.data.featured) || b.data.updatedAt.valueOf() - a.data.updatedAt.valueOf(),
+);
+
+const copy = lang === 'ja'
+	? {
+			eyebrow: 'Curated Azure learning',
+			title: 'つくって学ぶ、Azure。',
+			description: '実際に動かせるハンズオン、デモ、ワークショップを、公開 GitHub リポジトリから厳選しました。',
+			repos: '掲載リポジトリ',
+			services: 'Azure / Microsoft サービス',
+			languages: '対応言語',
+			catalog: 'コンテンツを探す',
+			search: 'タイトル、サービス、タグで検索',
+			all: 'すべて',
+			handsOn: 'ハンズオン',
+			demo: 'デモ',
+			workshop: 'ワークショップ',
+			results: '件',
+			details: '詳細を見る',
+			repository: 'GitHub',
+			noResults: '条件に一致するコンテンツがありません。',
+			level: { beginner: '初級', intermediate: '中級', advanced: '上級' },
+		}
+	: {
+			eyebrow: 'Curated Azure learning',
+			title: 'Learn Azure by building.',
+			description: 'A curated collection of runnable hands-on labs, demos, and workshops from public GitHub repositories.',
+			repos: 'Selected repositories',
+			services: 'Azure / Microsoft services',
+			languages: 'Content languages',
+			catalog: 'Explore the catalog',
+			search: 'Search by title, service, or tag',
+			all: 'All',
+			handsOn: 'Hands-on',
+			demo: 'Demo',
+			workshop: 'Workshop',
+			results: 'results',
+			details: 'View details',
+			repository: 'GitHub',
+			noResults: 'No content matches these filters.',
+			level: { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' },
+		};
+
+const serviceCount = new Set(items.flatMap((item) => item.data.services)).size;
+---
+
+<BaseLayout
+	lang={lang}
+	title={`Azure Workshop Store | ${copy.title}`}
+	description={copy.description}
+	alternatePath=""
+>
+	<section class="hero">
+		<div class="shell">
+			<p class="eyebrow">{copy.eyebrow}</p>
+			<h1>{copy.title}</h1>
+			<p class="hero-copy">{copy.description}</p>
+			<div class="stats">
+				<div class="stat"><strong>{items.length}</strong><span>{copy.repos}</span></div>
+				<div class="stat"><strong>{serviceCount}</strong><span>{copy.services}</span></div>
+				<div class="stat"><strong>JA / EN</strong><span>{copy.languages}</span></div>
+			</div>
+		</div>
+	</section>
+
+	<section class="catalog">
+		<div class="shell">
+			<div class="catalog-heading">
+				<h2>{copy.catalog}</h2>
+				<span class="result-count"><strong data-result-count>{items.length}</strong> {copy.results}</span>
+			</div>
+			<div class="filters">
+				<input class="search" type="search" data-search placeholder={copy.search} aria-label={copy.search} />
+				<div class="filter-buttons" role="group" aria-label="Format">
+					<button class="filter-button" type="button" data-filter="all" aria-pressed="true">{copy.all}</button>
+					<button class="filter-button" type="button" data-filter="hands-on" aria-pressed="false">{copy.handsOn}</button>
+					<button class="filter-button" type="button" data-filter="demo" aria-pressed="false">{copy.demo}</button>
+					<button class="filter-button" type="button" data-filter="workshop" aria-pressed="false">{copy.workshop}</button>
+				</div>
+			</div>
+
+			<div class="grid" data-grid>
+				{items.map((item) => {
+					const title = lang === 'ja' ? item.data.titleJa : item.data.titleEn;
+					const summary = lang === 'ja' ? item.data.summaryJa : item.data.summaryEn;
+					const searchText = [title, summary, ...item.data.services, ...item.data.tags].join(' ').toLowerCase();
+					return (
+						<article class="card" data-card data-format={item.data.format} data-search-text={searchText}>
+							<div class="card-top">
+								<span class="type">{item.data.format}</span>
+								<span class="level">{copy.level[item.data.level]}</span>
+							</div>
+							<h3>{title}</h3>
+							<p class="summary">{summary}</p>
+							<div class="meta">
+								<span>⏱ {item.data.duration}</span>
+								<span>·</span>
+								<span>{item.data.languages.map((value) => value.toUpperCase()).join(' / ')}</span>
+							</div>
+							<div class="tags">
+								{item.data.services.slice(0, 4).map((service) => <span class="tag">{service}</span>)}
+							</div>
+							<div class="card-actions">
+								<a class="button primary" href={`${base}${lang}/${item.id}/`}>{copy.details}</a>
+								<a class="button" href={item.data.url} target="_blank" rel="noreferrer">{copy.repository} ↗</a>
+							</div>
+						</article>
+					);
+				})}
+			</div>
+			<p class="empty" data-empty>{copy.noResults}</p>
+		</div>
+	</section>
+	<script is:inline>
+		const cards = [...document.querySelectorAll('[data-card]')];
+		const search = document.querySelector('[data-search]');
+		const count = document.querySelector('[data-result-count]');
+		const empty = document.querySelector('[data-empty]');
+		const buttons = [...document.querySelectorAll('[data-filter]')];
+		let activeFilter = 'all';
+
+		const update = () => {
+			const query = search?.value.trim().toLowerCase() || '';
+			let visible = 0;
+			cards.forEach((card) => {
+				const matchesFormat = activeFilter === 'all' || card.dataset.format === activeFilter;
+				const matchesQuery = !query || card.dataset.searchText.includes(query);
+				const show = matchesFormat && matchesQuery;
+				card.hidden = !show;
+				if (show) visible += 1;
+			});
+			if (count) count.textContent = String(visible);
+			if (empty) empty.style.display = visible ? 'none' : 'block';
+		};
+
+		search?.addEventListener('input', update);
+		buttons.forEach((button) => {
+			button.addEventListener('click', () => {
+				activeFilter = button.dataset.filter;
+				buttons.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+				update();
+			});
+		});
+	</script>
+</BaseLayout>
